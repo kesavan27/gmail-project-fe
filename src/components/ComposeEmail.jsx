@@ -209,17 +209,17 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
               isValid={validationResults.to === "success"}
               required
             />
-            {validationResults.to === "error" && (
-              <Form.Control.Feedback type="invalid">
-                Some email addresses are invalid.
-              </Form.Control.Feedback>
-            )}
+            
             {validationResults.to === "success" && (
               <Form.Control.Feedback type="valid">
                 All email addresses are valid.
               </Form.Control.Feedback>
             )}
-            
+            {invalidEmails.to.length > 0 && (
+              <Alert variant="danger">
+                Invalid Emails: {invalidEmails.to.join(", ")}
+              </Alert>
+            )}
           </Form.Group>
           <Button
             variant="link"
@@ -249,7 +249,11 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
                     All email addresses are valid.
                   </Form.Control.Feedback>
                 )}
-                
+                {invalidEmails.cc.length > 0 && (
+                  <Alert variant="danger">
+                    Invalid Emails: {invalidEmails.cc.join(", ")}
+                  </Alert>
+                )}
               </Form.Group>
               <Form.Group controlId="bcc">
                 <Form.Label>Bcc:</Form.Label>
@@ -263,11 +267,7 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
                   isInvalid={validationResults.bcc === "error"}
                   isValid={validationResults.bcc === "success"}
                 />
-                {validationResults.bcc === "error" && (
-                  <Form.Control.Feedback type="invalid">
-                    Some email addresses are invalid.
-                  </Form.Control.Feedback>
-                )}
+                
                 {validationResults.bcc === "success" && (
                   <Form.Control.Feedback type="valid">
                     All email addresses are valid.
