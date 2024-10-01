@@ -4,11 +4,9 @@ import PropTypes from "prop-types";
 import { EmailContext } from "../context/EmailContext";
 import { jwtDecode } from "jwt-decode";
 import { sendEmail } from "../apis/emails/sendEmail";
+import { validateEmail } from "../apis/emails/validateEmail";
 import { draftEmail } from "../apis/emails/draftEmail";
 import { nanoid } from "nanoid";
-
-// Basic email validation regex for checking general email format
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ComposeEmail = ({ show, handleClose, draftData }) => {
   const { state, dispatch } = useContext(EmailContext);
@@ -18,15 +16,29 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
   const [subject, setSubject] = useState(draftData?.subject || "");
   const [body, setBody] = useState(draftData?.body || "");
   const [showCcBcc, setShowCcBcc] = useState(false);
+  const [validationResults, setValidationResults] = useState({
+    to: null,
+    cc: null,
+    bcc: null,
+  });
   const [sendDisabled, setSendDisabled] = useState(true);
   const [invalidEmails, setInvalidEmails] = useState({
     to: [],
     cc: [],
     bcc: [],
   });
+  const [fetchController, setFetchController] = useState(null);
   const [backendError, setBackendError] = useState(null);
 
   const { email } = jwtDecode(localStorage.getItem("token"));
+
+  useEffect(() => {
+    return () => {
+      if (fetchController) {
+        fetchController.abort();
+      }
+    };
+  }, [fetchController]);
 
   useEffect(() => {
     if (draftData) {
@@ -54,7 +66,10 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
     };
 
     try {
-      await draftEmail(newEmail);
+      const controller = new AbortController();
+      setFetchController(controller);
+
+      await draftEmail(newEmail, controller);
     } catch (error) {
       console.error("Failed to save draft email:", error);
     }
@@ -73,7 +88,10 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
     };
 
     try {
-      const savedEmail = await sendEmail(newEmail);
+      const controller = new AbortController();
+      setFetchController(controller);
+
+      const savedEmail = await sendEmail(newEmail, controller);
       dispatch({ type: "ADD_EMAIL", folder: "sent", payload: savedEmail });
       handleClose();
       clearForm();
@@ -88,20 +106,52 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
     if (name === "to") setTo(value);
     else if (name === "cc") setCc(value);
     else if (name === "bcc") setBcc(value);
-
-    validateAllEmails();
   };
 
-  const validateAllEmails = () => {
-    const toValidation = validateEmails("to");
-    const ccValidation = validateEmails("cc");
-    const bccValidation = validateEmails("bcc");
+  const handleBlur = async (field) => {
+    const validateResult = await validateEmails(field);
 
-    setSendDisabled(!(toValidation && ccValidation && bccValidation));
+    setValidationResults((prevResults) => ({
+      ...prevResults,
+      [field]: validateResult.code === 1 ? "success" : "error",
+    }));
+
+    setInvalidEmails((prevInvalidEmails) => ({
+      ...prevInvalidEmails,
+      [field]: validateResult.code === 0 ? validateResult.invalidEmails : [],
+    }));
+
+    setSendDisabled((prevSendDisabled) => {
+      if (
+        field === "to" &&
+        validationResults.cc !== "error" &&
+        validationResults.bcc !== "error" &&
+        validateResult.code === 1
+      ) {
+        return false;
+      }
+      if (
+        field === "cc" &&
+        validationResults.to !== "error" &&
+        validationResults.bcc !== "error" &&
+        validateResult.code === 1
+      ) {
+        return false;
+      }
+      if (
+        field === "bcc" &&
+        validationResults.to !== "error" &&
+        validationResults.cc !== "error" &&
+        validateResult.code === 1
+      ) {
+        return false;
+      }
+      return prevSendDisabled || validateResult.code === 0;
+    });
   };
 
-  const validateEmails = (field) => {
-    let emails = "";
+  const validateEmails = async (field) => {
+    let emails;
     switch (field) {
       case "to":
         emails = to;
@@ -116,19 +166,18 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
         emails = "";
     }
 
-    const emailList = emails
-      .split(";")
-      .map((email) => email.trim())
-      .filter(Boolean);
+    if (!emails) return { code: 1, invalidEmails: [] };
 
-    const invalidEmailList = emailList.filter((email) => !emailRegex.test(email));
+    try {
+      const controller = new AbortController();
+      setFetchController(controller);
 
-    setInvalidEmails((prevInvalidEmails) => ({
-      ...prevInvalidEmails,
-      [field]: invalidEmailList,
-    }));
-
-    return invalidEmailList.length === 0;
+      const result = await validateEmail(emails, controller);
+      return result;
+    } catch (error) {
+      console.error("Failed to validate emails:", error);
+      return { code: 0, invalidEmails: emails.split(";").map((e) => e.trim()) };
+    }
   };
 
   const clearForm = () => {
@@ -150,14 +199,26 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
           <Form.Group controlId="to">
             <Form.Label>To:</Form.Label>
             <Form.Control
-              type="text"
+              type="email"
               name="to"
               placeholder="Enter recipient email(s) separated by semicolon"
               value={to}
               onChange={handleInputChange}
-              isInvalid={invalidEmails.to.length > 0}
+              onBlur={() => handleBlur("to")}
+              isInvalid={validationResults.to === "error"}
+              isValid={validationResults.to === "success"}
               required
             />
+            {validationResults.to === "error" && (
+              <Form.Control.Feedback type="invalid">
+                Some email addresses are invalid.
+              </Form.Control.Feedback>
+            )}
+            {validationResults.to === "success" && (
+              <Form.Control.Feedback type="valid">
+                All email addresses are valid.
+              </Form.Control.Feedback>
+            )}
             {invalidEmails.to.length > 0 && (
               <Alert variant="danger">
                 Invalid Emails: {invalidEmails.to.join(", ")}
@@ -177,13 +238,25 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
               <Form.Group controlId="cc">
                 <Form.Label>Cc:</Form.Label>
                 <Form.Control
-                  type="text"
+                  type="email"
                   name="cc"
                   placeholder="Enter CC email(s) separated by semicolon"
                   value={cc}
                   onChange={handleInputChange}
-                  isInvalid={invalidEmails.cc.length > 0}
+                  onBlur={() => handleBlur("cc")}
+                  isInvalid={validationResults.cc === "error"}
+                  isValid={validationResults.cc === "success"}
                 />
+                {validationResults.cc === "error" && (
+                  <Form.Control.Feedback type="invalid">
+                    Some email addresses are invalid.
+                  </Form.Control.Feedback>
+                )}
+                {validationResults.cc === "success" && (
+                  <Form.Control.Feedback type="valid">
+                    All email addresses are valid.
+                  </Form.Control.Feedback>
+                )}
                 {invalidEmails.cc.length > 0 && (
                   <Alert variant="danger">
                     Invalid Emails: {invalidEmails.cc.join(", ")}
@@ -193,13 +266,25 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
               <Form.Group controlId="bcc">
                 <Form.Label>Bcc:</Form.Label>
                 <Form.Control
-                  type="text"
+                  type="email"
                   name="bcc"
                   placeholder="Enter BCC email(s) separated by semicolon"
                   value={bcc}
                   onChange={handleInputChange}
-                  isInvalid={invalidEmails.bcc.length > 0}
+                  onBlur={() => handleBlur("bcc")}
+                  isInvalid={validationResults.bcc === "error"}
+                  isValid={validationResults.bcc === "success"}
                 />
+                {validationResults.bcc === "error" && (
+                  <Form.Control.Feedback type="invalid">
+                    Some email addresses are invalid.
+                  </Form.Control.Feedback>
+                )}
+                {validationResults.bcc === "success" && (
+                  <Form.Control.Feedback type="valid">
+                    All email addresses are valid.
+                  </Form.Control.Feedback>
+                )}
                 {invalidEmails.bcc.length > 0 && (
                   <Alert variant="danger">
                     Invalid Emails: {invalidEmails.bcc.join(", ")}
@@ -238,7 +323,7 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
               handleClose();
             }}
           >
-            Save Draft
+            Discard
           </Button>
           <Button variant="primary" type="submit" disabled={sendDisabled}>
             Send
