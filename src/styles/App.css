@@ -1,0 +1,105 @@
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
+
+body {
+  font-family: "Roboto", sans-serif !important;
+  font-optical-sizing: auto;
+}
+
+.hero-title {
+  font-size: 4.5rem;
+  text-overflow: clip;
+}
+
+.hero-text {
+  font-size: 1.5rem;
+}
+
+/* Responsive styles for text */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .hero-text {
+    font-size: 1rem;
+  }
+
+  .hero-button {
+    font-size: 1rem;
+  }
+}
+
+.custom-popover {
+  top: 10px !important; /* Adjust this value to move the popover up or down */
+  left: auto !important; /* Ensure it's aligned with the avatar */
+  position: absolute !important;
+  z-index: 1000;
+  width: 200px; /* Adjust as needed */
+  transform: translateX(-50%); /* Center align the popover */
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+@media (min-width: 992px) {
+  .navbar {
+    justify-content: space-between !important;
+  }
+}
+
+@media (max-width: 991px) {
+  .navbar .form-inline {
+    width: 100%;
+  }
+
+  .navbar {
+    flex-direction: row;
+    align-items: center;
+  }
+  .navbar-nav {
+    flex-direction: row !important;
+  }
+  .custom-nav {
+    flex-grow: 0 !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .navbar-brand {
+    flex-grow: 1;
+  }
+  .navbar-collapse {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+/* styles.css */
+.custom-popover {
+  max-width: 300px;
+}
+
+.avatar-wrapper {
+  display: inline-block;
+}
+
+.navbar-brand img {
+  margin-right: 10px;
+}
+
+.email-list .list-group-item {
+  cursor: pointer;
+}
+
+.email-view {
+  border-left: 1px solid #ddd;
+}
+
+@media (max-width: 767px) {
+  .email-view {
+    border-left: none;
+    margin-top: 15px;
+  }
+}
