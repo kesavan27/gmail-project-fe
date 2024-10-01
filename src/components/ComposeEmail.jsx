@@ -243,21 +243,13 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
                   isInvalid={validationResults.cc === "error"}
                   isValid={validationResults.cc === "success"}
                 />
-                {validationResults.cc === "error" && (
-                  <Form.Control.Feedback type="invalid">
-                    Some email addresses are invalid.
-                  </Form.Control.Feedback>
-                )}
+                
                 {validationResults.cc === "success" && (
                   <Form.Control.Feedback type="valid">
                     All email addresses are valid.
                   </Form.Control.Feedback>
                 )}
-                {invalidEmails.cc.length > 0 && (
-                  <Alert variant="danger">
-                    Invalid Emails: {invalidEmails.cc.join(", ")}
-                  </Alert>
-                )}
+                
               </Form.Group>
               <Form.Group controlId="bcc">
                 <Form.Label>Bcc:</Form.Label>
