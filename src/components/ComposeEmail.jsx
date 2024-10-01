@@ -219,11 +219,7 @@ const ComposeEmail = ({ show, handleClose, draftData }) => {
                 All email addresses are valid.
               </Form.Control.Feedback>
             )}
-            {invalidEmails.to.length > 0 && (
-              <Alert variant="danger">
-                Invalid Emails: {invalidEmails.to.join(", ")}
-              </Alert>
-            )}
+            
           </Form.Group>
           <Button
             variant="link"
